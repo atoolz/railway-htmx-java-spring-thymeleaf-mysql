@@ -17,7 +17,7 @@ public class RailwayDataSourceConfig {
     String raw = System.getenv("DATABASE_URL");
     if (raw == null || raw.isBlank()) {
       throw new IllegalStateException(
-          "DATABASE_URL is required (e.g. reference ${{MySQL.DATABASE_URL}} on Railway)");
+          "DATABASE_URL is required (e.g. DATABASE_URL=${{MySQL.MYSQL_URL}} on Railway)");
     }
     String url = raw.trim();
     if (!url.startsWith("mysql://")) {

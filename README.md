@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://railway.com/deploy/htmx-spring-thymeleaf-mysql">
+  <a href="https://railway.com/deploy/htmxspringthymeleafmysql">
     <img src="https://railway.com/button.svg" alt="Deploy on Railway">
   </a>
 </p>
@@ -26,19 +26,27 @@
 
 ## Deploy and Host HTMX + Spring Boot + MySQL Starter on Railway
 
-Same architecture as the PostgreSQL variant: HTMX + Thymeleaf + JPA + Flyway, with **`DATABASE_URL`** shaped like `mysql://user:pass@host:3306/db` (Railway MySQL). SSL mode is applied for remote hosts.
+HTMX + Spring Boot + MySQL Starter is a production-ready template for hypermedia-driven web apps. It uses HTMX for partial updates, Spring Web + Thymeleaf for server-rendered HTML, JPA + Flyway for persistence, and MySQL. **`DATABASE_URL`** must be a `mysql://user:pass@host:3306/db` string (Railway’s MySQL plugin exposes **`MYSQL_URL`** — map it on the web service). `RailwayDataSourceConfig` parses it into a HikariCP JDBC URL with SSL for non-local hosts. Tailwind and HTMX load from CDN.
+
+### About Hosting
+
+Multi-stage **Dockerfile** (Maven build, JRE runtime). Flyway runs migrations on startup. **`GET /health`** returns JSON and checks the database. **`PORT`** defaults to `8080`.
 
 ### Dependencies for Hosting
 
-- Railway **MySQL** (or compatible `DATABASE_URL`)
-- `DATABASE_URL` on the web service (reference your MySQL plugin variable)
+- Railway **MySQL** (or any compatible `mysql://` URL in `DATABASE_URL`)
+- On the **web** service: `DATABASE_URL` = `${{MySQL.MYSQL_URL}}`
 
 #### Deployment Dependencies
 
 - [HTMX](https://htmx.org/docs/)
 - [Spring Boot](https://spring.io/projects/spring-boot)
 - [Thymeleaf](https://www.thymeleaf.org/)
-- [Flyway](https://flywaydb.org/)
+- [Flyway](https://flywaydb.org/documentation/database/mysql)
+
+### Why Deploy on Railway?
+
+Railway hosts your stack with minimal configuration and scales as you grow.
 
 <br>
 
@@ -46,26 +54,59 @@ Same architecture as the PostgreSQL variant: HTMX + Thymeleaf + JPA + Flyway, wi
 
 | Layer | Technology | Role |
 |-------|-----------|------|
-| **Frontend** | HTMX + Tailwind (CDN) | Partial updates |
-| **Templating** | Thymeleaf | SSR + fragments |
-| **Database** | MySQL + JPA + Flyway | Todo schema |
+| **Frontend** | HTMX 2.0.7 + Tailwind (CDN) | Partial page updates |
+| **Templating** | Thymeleaf | SSR + fragments for HTMX swaps |
+| **API** | Spring Web | REST + HTML responses |
+| **Database** | MySQL 8 + JPA + Flyway | Entities, migrations |
+
+<br>
+
+## Project Structure
+
+```
+.
+├── src/main/java/com/atoolz/htmx/
+│   ├── HtmxApplication.java
+│   ├── config/RailwayDataSourceConfig.java
+│   └── todo/                    # Entity, repository, controller
+├── src/main/resources/
+│   ├── application.yaml
+│   ├── db/migration/V1__todos.sql
+│   └── templates/
+│       ├── home.html
+│       └── fragments/todo-item.html
+├── pom.xml
+└── Dockerfile
+```
+
+<br>
+
+## HTMX Patterns Demonstrated
+
+- **`hx-post`**, **`hx-patch`**, **`hx-delete`** with `hx-target` / `hx-swap`
+- **Health check** — `GET /health`
 
 <br>
 
 ## Deploy to Railway
 
-1. Add **MySQL** + web service from this repo
-2. Set **`DATABASE_URL`** to your MySQL connection string
-3. Health check: **`GET /health`**
+1. Fork this repo (or connect it)
+2. New project → add **MySQL**
+3. Add a **web** service from this repo (Dockerfile root)
+4. Set `DATABASE_URL` = `${{MySQL.MYSQL_URL}}`
+5. Health check path: **`/health`**
 
 <br>
 
 ## Local Development
 
 ```bash
+# Java 21 + Maven + local MySQL
 export DATABASE_URL="mysql://root:pass@127.0.0.1:3306/htmx"
 mvn spring-boot:run
 ```
+
+Open [http://localhost:8080](http://localhost:8080).
 
 <br>
 
@@ -73,8 +114,32 @@ mvn spring-boot:run
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | - | MySQL URL (`mysql://…`) |
+| `DATABASE_URL` | Yes | - | MySQL URL (`mysql://…`); on Railway reference `${{MySQL.MYSQL_URL}}` |
 | `PORT` | No | `8080` | HTTP port |
+
+<br>
+
+## Railway template: MySQL service variables
+
+Use one variable per line when defining the **MySQL** plugin service (same idea as PostgreSQL’s `PGDATA` / `POSTGRES_*` block). Adjust names to match your Railway dashboard; the web app only needs **`DATABASE_URL`** pointing at **`${{MySQL.MYSQL_URL}}`**.
+
+```bash
+MYSQLDATA="" # datadir on the volume; leave empty to use the image default
+MYSQLHOST="${{RAILWAY_PRIVATE_DOMAIN}}" # private hostname for other Railway services
+MYSQLPORT="" # omit for default 3306, or set explicitly
+MYSQLUSER="" # effective DB user (often root); emitted by the MySQL plugin
+MYSQLPASSWORD="" # password for MYSQLUSER; reference the plugin’s generated secret
+MYSQLDATABASE="" # database/schema name; emitted by the MySQL plugin
+MYSQL_ROOT_PASSWORD="${{ secret(32, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\") }}" # bootstrap root password on first provision
+MYSQL_DATABASE="" # optional first-run database name (official MySQL image)
+MYSQL_USER="" # optional first-run user distinct from root
+MYSQL_URL="" # canonical mysql://… for in-network clients — **web: DATABASE_URL=${{MySQL.MYSQL_URL}}**
+MYSQL_PUBLIC_URL="" # mysql://… via Railway TCP proxy for external clients
+DATABASE_PUBLIC_URL="${{MYSQL_PUBLIC_URL}}" # alias some tooling expects for public TCP URL
+RAILWAY_TCP_PROXY_DOMAIN="" # TCP proxy host when MySQL is exposed publicly
+RAILWAY_TCP_PROXY_PORT="" # TCP proxy port when public networking is enabled
+RAILWAY_DEPLOYMENT_DRAINING_SECONDS="" # graceful drain window during deploys
+```
 
 <br>
 
