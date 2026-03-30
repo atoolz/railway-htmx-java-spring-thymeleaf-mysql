@@ -121,24 +121,23 @@ Open [http://localhost:8080](http://localhost:8080).
 
 ## Railway template: MySQL service variables
 
-Use one variable per line when defining the **MySQL** plugin service (same idea as PostgreSQL’s `PGDATA` / `POSTGRES_*` block). Adjust names to match your Railway dashboard; the web app only needs **`DATABASE_URL`** pointing at **`${{MySQL.MYSQL_URL}}`**.
+Use one variable per line when defining the **MySQL** plugin service. The **web** service sets **`DATABASE_URL`** from the plugin’s **`MYSQL_URL`**. Example shape (adjust `MYSQL_DATABASE` / user; generate **`MYSQL_ROOT_PASSWORD`** with Railway’s secret helper — do not paste real passwords into the repo).
+
+**Template icon (Railway):** [assets/icon.png](https://raw.githubusercontent.com/atoolz/railway-htmx-java-spring-thymeleaf-mysql/master/assets/icon.png) · [assets/icon.svg](https://raw.githubusercontent.com/atoolz/railway-htmx-java-spring-thymeleaf-mysql/master/assets/icon.svg)
 
 ```bash
-MYSQLDATA="" # datadir on the volume; leave empty to use the image default
-MYSQLHOST="${{RAILWAY_PRIVATE_DOMAIN}}" # private hostname for other Railway services
-MYSQLPORT="" # omit for default 3306, or set explicitly
-MYSQLUSER="" # effective DB user (often root); emitted by the MySQL plugin
-MYSQLPASSWORD="" # password for MYSQLUSER; reference the plugin’s generated secret
-MYSQLDATABASE="" # database/schema name; emitted by the MySQL plugin
-MYSQL_ROOT_PASSWORD="${{ secret(32, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\") }}" # bootstrap root password on first provision
-MYSQL_DATABASE="" # optional first-run database name (official MySQL image)
-MYSQL_USER="" # optional first-run user distinct from root
-MYSQL_URL="" # canonical mysql://… for in-network clients — **web: DATABASE_URL=${{MySQL.MYSQL_URL}}**
-MYSQL_PUBLIC_URL="" # mysql://… via Railway TCP proxy for external clients
-DATABASE_PUBLIC_URL="${{MYSQL_PUBLIC_URL}}" # alias some tooling expects for public TCP URL
-RAILWAY_TCP_PROXY_DOMAIN="" # TCP proxy host when MySQL is exposed publicly
-RAILWAY_TCP_PROXY_PORT="" # TCP proxy port when public networking is enabled
-RAILWAY_DEPLOYMENT_DRAINING_SECONDS="" # graceful drain window during deploys
+MYSQL_DATABASE="railway" # database created / used by the stack (change if you prefer another name)
+MYSQL_PUBLIC_URL="mysql://${{MYSQLUSER}}:${{MYSQL_ROOT_PASSWORD}}@${{RAILWAY_TCP_PROXY_DOMAIN}}:${{RAILWAY_TCP_PROXY_PORT}}/${{MYSQL_DATABASE}}" # mysql:// via Railway TCP proxy (public networking)
+MYSQL_ROOT_PASSWORD="${{ secret(32, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\") }}" # root password at provision; use Railway generated secret, not a committed literal
+MYSQL_URL="mysql://${{MYSQLUSER}}:${{MYSQL_ROOT_PASSWORD}}@${{RAILWAY_PRIVATE_DOMAIN}}:3306/${{MYSQL_DATABASE}}" # in-private-network URL consumed by the web service as ${{MySQL.MYSQL_URL}}
+MYSQLDATABASE="${{MYSQL_DATABASE}}" # alias without underscore (Railway MySQL plugin)
+MYSQLHOST="${{RAILWAY_PRIVATE_DOMAIN}}" # private hostname for other services in the project
+MYSQLPASSWORD="${{MYSQL_ROOT_PASSWORD}}" # password for MYSQLUSER (matches root when MYSQLUSER is root)
+MYSQLPORT="3306" # MySQL listen port inside the network
+MYSQLUSER="root" # superuser; create a limited DB user in production if you need least privilege
+
+# Web service (Spring Boot) — reference the MySQL plugin variable:
+DATABASE_URL="${{MySQL.MYSQL_URL}}" # must be mysql://…; parsed by RailwayDataSourceConfig
 ```
 
 <br>
